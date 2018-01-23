@@ -68,12 +68,10 @@ setCredsIfMissing(repoWithBinariesCredId, "Repo with binaries",
 	System.getenv('M2_SETTINGS_REPO_USERNAME') ?: "admin",
 	System.getenv('M2_SETTINGS_REPO_PASSWORD') ?: "password")
 
-// remove::start[CF]
 println "Creating the credentials for CF"
 ['cf-test', 'cf-stage', 'cf-prod'].each { String id ->
 	setCredsIfMissing(id, "CF credential [$id]", "user", "pass")
 }
-// remove::end[CF]
 
 println "Importing GPG Keys"
 def privateKey = new File('/usr/share/jenkins/private.key')
@@ -113,57 +111,6 @@ if (gitSshKey) {
 }
 setCredsIfMissing("git", "GIT credential", gitUser, gitPass)
 
-// remove::start[K8S]
-def certificateAuthority = new File('/usr/share/jenkins/cert/ca.crt')
-def clientCertificate = new File('/usr/share/jenkins/cert/apiserver.crt')
-def clientKey = new File('/usr/share/jenkins/cert/apiserver.key')
-def kubernetesHome = new File("${jenkinsHome}/.kubernetes/")
-
-if (certificateAuthority.exists() && !kubernetesHome.exists()) {
-	println "Copying Kubernetes certificates"
-	File targetFile = new File("${jenkinsHome}/.kubernetes/")
-	Files.copy(new File('/usr/share/jenkins/cert/').toPath(), targetFile.toPath())
-}
-if (kubernetesHome.exists()) {
-	println "The .kubernetes folder is already created - won't copy the certificates"
-}
-
-String dockerRegistryUser =
-	new File('/usr/share/jenkins/dockerRegistryUser')?.text ?: "changeme"
-String dockerRegistryPass =
-	new File('/usr/share/jenkins/dockerRegistryPass')?.text ?: "changeme"
-String dockerRegistryEmail =
-	new File('/usr/share/jenkins/dockerRegistryEmail')?.text ?: "change@me.com"
-
-println "Creating repo with binaries credentials"
-String dockerCredId = "docker-registry"
-setCredsIfMissing(dockerCredId, "Docker Registry credentials", dockerRegistryUser, dockerRegistryPass)
-
-println "Adding MySQL credentials"
-boolean mySqlCredsMissing = SystemCredentialsProvider.getInstance().getCredentials().findAll {
-	it.getDescriptor().getId().startsWith('mysql')
-}.empty
-
-String mySqlRootPass = new File('/usr/share/jenkins/mySqlRootPass')?.text ?: "rootpassword"
-String mySqlPass = new File('/usr/share/jenkins/mySqlPass')?.text ?: "username"
-String mySqlUser = new File('/usr/share/jenkins/mySqlUser')?.text ?: "password"
-
-if (mySqlCredsMissing) {
-	println "MySQL credentials are missing - will create it"
-	SystemCredentialsProvider.getInstance().getCredentials().add(
-			new UsernamePasswordCredentialsImpl(CredentialsScope.GLOBAL, 'mysql-root',
-					"MySQL root credentials", "root", mySqlRootPass))
-	SystemCredentialsProvider.getInstance().getCredentials().add(
-			new UsernamePasswordCredentialsImpl(CredentialsScope.GLOBAL, 'mysql',
-					"MySQL credentials", mySqlPass, mySqlUser))
-	SystemCredentialsProvider.getInstance().save()
-}
-
-println "Creating the seed job"
-modifiedSeedJob = modifiedSeedJob
-	.replace('scpipelines', "${System.getenv('DOCKER_REGISTRY_ORGANIZATION') ?: "scpipelines"}")
-	.replace("change@me.com", dockerRegistryEmail)
-// remove::end[K8S]
 
 
 println "Adding jdk"
